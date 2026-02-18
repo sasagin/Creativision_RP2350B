@@ -1,0 +1,55 @@
+.program vdpintz80
+.side_set 1 opt
+
+; ============================================================================
+; Передатчик входа INT от VDP9918 к входу INT Z80 или NMI (coleco)
+; - 1 вход 
+; - 1 выход
+; ============================================================================
+
+; Назначение GPIO пинов
+
+.define public VDP_IN_PIN                      40 ; вход прерывания от VDP9918
+.define public VDP_OUT_PIN                     36 ; Устанавливается через sideset. sideset = NMI(coleco = 36) INT(sg1000 = 37)
+
+.wrap_target
+wait_INT:
+    wait 0 gpio VDP_IN_PIN     side 1        ; Ждать сигнала INT (INT = LOW)
+    wait 1 gpio VDP_IN_PIN     side 0        ;  Ждать сигнала INT (INT = HIGH)        
+    jmp wait_INT
+.wrap
+
+
+% c-sdk {
+
+void vdpintz80_program_init(PIO pio, uint sm, uint offset)
+{
+    pio_sm_config cfg = vdpintz80_program_get_default_config(offset);
+
+    // Назначение пинов
+    sm_config_set_in_pins(&cfg, vdpintz80_VDP_IN_PIN);           // IN base = GPIO INT_PIN
+
+    //sm_config_set_sideset_pin_base(&cfg, 16);
+    sm_config_set_sideset_pins(&cfg, vdpintz80_VDP_OUT_PIN);      // SIDESET = GPIO NMI_PIN
+
+    // Инициализация GPIO для управления через PIO
+
+    pio_gpio_init(pio, vdpintz80_VDP_IN_PIN);
+
+    // Установка направлений пинов
+    pio_sm_set_consecutive_pindirs(pio, sm, vdpintz80_VDP_IN_PIN, 1, false);  // вход
+    pio_sm_set_consecutive_pindirs(pio, sm, vdpintz80_VDP_OUT_PIN, 1, true);      // READY: выход 
+
+    // vdpintz80_VDP_OUT_PIN: выход (управляется PIO)
+    pio_gpio_init(pio, vdpintz80_VDP_OUT_PIN);
+
+    // Установить READY=HIGH до старта
+    gpio_put(vdpintz80_VDP_OUT_PIN, true);
+
+    // Инициализировать и запустить state machine
+    pio_sm_init(pio, sm, offset, &cfg);
+  
+}
+
+
+%}
