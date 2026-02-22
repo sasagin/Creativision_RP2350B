@@ -1,11 +1,6 @@
 //This is from 
 /*****************************************************************************
- *                                   \ /
- *                        C R E A T I V I S I O N
- *                            E M U L A T O R
- *                                  0.2.2
- *
- *       This emulator was written using Marat Fayzullin's Emulib*/
+/* https://sourceforge.net/projects/creativisionemulator/files/
 /***************************************************************************** */
 //partially
 
