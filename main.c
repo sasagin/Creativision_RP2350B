@@ -166,7 +166,7 @@ __always_inline static inline void write_6502_memory(const uint16_t address, con
     if (address < 0x0400) {RAM[address & 0x03ff] = value; return;}
 
     if ((address & 0xF000) == 0x1000){
-// printf("write into PIA - address = %04X data = %02X \n",address,value) ;               
+            
         PIA_Write(address,value);}
     
 }
@@ -284,10 +284,9 @@ void __time_critical_func(handle_6502_bus)() {
         }
         for (uint8_t i = 0; i < BUS_CYCLE_DELAY_NOPs; i++) { asm volatile("nop \n nop \n nop "); }        
 
-        total_cycles++; // for PIA 
+        // total_cycles++; // for PIA SN76489, not need
 
         // Apply a short reset pulse only on startup
-
 
         if (reset_delay_counter < 8) {
             reset_delay_counter++;
@@ -308,7 +307,7 @@ int main()
     sleep_ms(100);
     set_sys_clock_hz(315 * MHZ, 1); // fallback to failsafe clocks
 
-    stdio_init_all();
+    // stdio_init_all();
 
     // Initialize 6502 address/data bus directions
     gpio_init_mask(ADDR6502_MASK | DATA6502_MASK);
@@ -317,8 +316,7 @@ int main()
     // Configure all remaining 6502 and controller pins
     setup_6502_pins();
 
-        // Initialize select out interrupt from VDP to 6502
-
+    // Initialize select out interrupt from VDP to 6502    
     VDP_INT_init();
 
     // BIOS image (2 KB)
@@ -347,23 +345,12 @@ int main()
     // memcpy(ROM1_2, PlanetDefender_rom, romsize = PlanetDefender_rom_len);    
     memcpy(ROM1_2, StoneAge_rom, romsize = StoneAge_rom_len);
 
+    // Clear RAM
     memset(RAM, 0x00, 0x400);
 
     multicore_launch_core1(handle_6502_bus);
 
     while (true) {
-
-        // for (size_t i = 1; i < 16; i++)
-        // {
-        //     for (size_t y = 0; y < 16; y++)
-        //     {
-        //         printf(" %02X ", RAM[(i+16*y)+256]);
-        //     }
-        //     printf("\n");         
-        // }
-        // printf("\n");         
-        // busy_wait_ms(1000);
-
         if(joypad_read == 1 ){
             busy_wait_ms(4);            
             convert_nes_to_CV_joypad(read_joystick_data());
