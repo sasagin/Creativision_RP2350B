@@ -42,7 +42,7 @@ pico_set_program_version(CreatiVision "0.1")
 
 # Modify the below lines to enable/disable output over UART/USB
 pico_enable_stdio_uart(CreatiVision 0)
-pico_enable_stdio_usb(CreatiVision 1)
+pico_enable_stdio_usb(CreatiVision 0)
 
 pico_generate_pio_header(${PROJECT_NAME}
         ${CMAKE_CURRENT_SOURCE_DIR}/VDP_int.pio
