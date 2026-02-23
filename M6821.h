@@ -30,7 +30,7 @@ typedef struct {
     int PDR;  /* Peripheral Data Register */
     int DDR;  /* Data Direction Register */
     int CR;   /* Control Register */
-    unsigned long long int prev_cycles;
+    // unsigned long long int prev_cycles;
 } M6821;
 
 /* PIA 0 and 1 */
@@ -40,7 +40,7 @@ M6821 pia1 = {0};
 unsigned char KEYBD[8] = { 255, 255, 255, 255, 255, 255, 255, 255 };
 unsigned char JOYSM[2] = { 255, 255 };
 
-unsigned long long int total_cycles;  // for PIA
+// unsigned long long int total_cycles;  // for PIA
 
 /**
  * PIA_Write
@@ -80,7 +80,7 @@ void PIA_Write(uint16_t addr, uint8_t data)
                 #define AUD_W       41
                 gpio_put(AUD_W,0);              // SN76496SPWrite(0,data);
                 sleep_us(18);
-                pia1.prev_cycles = total_cycles;
+                // pia1.prev_cycles = total_cycles;
 
                 /* Set IRQ as complete */
                 pia1.CR = (pia1.CR & 0x3f) | ( ( pia1.CR & 3) << 6);
@@ -167,8 +167,8 @@ unsigned char PIA_Read(uint16_t addr)
         return pia1.DDR;
 
     case 3: /* PIA-1 Control Port */
-        if ( (total_cycles - pia1.prev_cycles) < 36)
-            return pia1.CR;
+        // if ( (total_cycles - pia1.prev_cycles) < 36)
+        //     return pia1.CR;
 
         pia1.CR &= 0x3f;
         return pia1.CR;
@@ -177,9 +177,7 @@ unsigned char PIA_Read(uint16_t addr)
     return 0;   /* Will never get here */
 }
 
-//convert NES to CV joypad
-
-
+//convert NES to CV two joypads
 
 void convert_nes_to_CV_joypad(uint16_t nes_joy_data1_2){
 
