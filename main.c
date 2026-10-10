@@ -1,11 +1,15 @@
 #include <stdio.h>
 #include "pico/stdlib.h"
+#include <string.h>
 
 #include "pico/multicore.h"
 #include "hardware/gpio.h"
 #include "hardware/clocks.h"
 #include "hardware/pwm.h"
 // #include "hardware/i2c.h"
+
+#include "ff.h"
+#include "f_util.h"
 
 #include "hardware/vreg.h"
 #include <hardware/structs/qmi.h>
@@ -15,53 +19,32 @@
 #include "VDP_int.pio.h"
 #include "M6821.h"
 
-#include "./ROM/bioscv.h"
-#include "./ROM/saloram.h"
-#include "./ROM/las2001.h"
-#include "./ROM/diaga.h"
-#include "./ROM/diagb.h"
-#include "./ROM/airsea.h"
-#include "./ROM/SonicInvader.h"
-#include "./ROM/CrazyChiky.h"
-#include "./ROM/CrazyPuker.h"
-#include "./ROM/ASAattack.h"
-#include "./ROM/ChResq.h"
-#include "./ROM/Locom.h"
-#include "./ROM/TankAttack.h"
-#include "./ROM/DeepSea.h"
-#include "./ROM/Locomotive12.h"
-#include "./ROM/AstroPinball.h"
-#include "./ROM/Hapmon.h"
-#include "./ROM/MousePuzzle.h"
-#include "./ROM/PlanetDefender.h"
-#include "./ROM/StoneAge.h"
-
 
 // /VDP_RD 
-#define VDP_RD      38
+#define VDP_RD      36
 #define VDP_RD_MASK (1ULL << VDP_RD)
 
 // /VDP_WR 
-#define VDP_WR      39
+#define VDP_WR      37
 #define VDP_WR_MASK (1ULL << VDP_WR)
 
-#define PIN_6502_CLOCK  37
+#define PIN_6502_CLOCK  29
 
 // RESET
-#define PIN_6502_RESET  47
+#define PIN_6502_RESET  44
 
 // CLK 2 MHz
-#define CLK_2_MHz       34
+#define CLK_2_MHz       28
 
 // /AUD_W
-#define AUD_W       41
-#define AUD_W_MASK (1ULL << AUD_W)
+// #define AUD_W       39
+// #define AUD_W_MASK (1ULL << AUD_W)
 
 // NES-compatible gamepad (shift register) pins
-#define PIN_NES_JOYPAD_CLOCK 42
-#define PIN_NES_JOYPAD_LATCH 43
-#define PIN_NES_JOYPAD_DATA1  44
-#define PIN_NES_JOYPAD_DATA2  45
+#define PIN_NES_JOYPAD_CLOCK 32
+#define PIN_NES_JOYPAD_LATCH 33
+#define PIN_NES_JOYPAD_DATA1  34
+#define PIN_NES_JOYPAD_DATA2  35
 #define NES_JOYPAD_SHIFT_COUNT 8
 
 #define VDP_INT_PIO     pio0
@@ -166,7 +149,7 @@ __always_inline static inline void write_6502_memory(const uint16_t address, con
     if (address < 0x0400) {RAM[address & 0x03ff] = value; return;}
 
     if ((address & 0xF000) == 0x1000){
-            
+// printf("write into PIA - address = %04X data = %02X \n",address,value) ;               
         PIA_Write(address,value);}
     
 }
@@ -259,10 +242,10 @@ void __time_critical_func(handle_6502_bus)() {
             for (uint8_t i = 0; i < BUS_CYCLE_DELAY_NOPs; i++) {asm volatile("nop \n nop \n nop \n nop");}
 
         // Sample address bus and R/W#; map address bits from GPIOs to 16-bit address
-        address = (uint16_t)((gpio_get_all() & ADDR6502_MASK)>>6);
+        address = (uint16_t)((gpio_get_all() & ADDR6502_MASK));
         // If read cycle, drive data onto bus
         if (gpio_get_all64() & R_W_MASK) {
-                gpio_put_masked(DATA6502_MASK, read_6502_memory(address) << 22);          
+                gpio_put_masked(DATA6502_MASK, read_6502_memory(address) << 16);          
             }else{
                 if ((address & 0xF000) == 0x3000) {
                     gpio_put(VDP_WR,0);        
@@ -279,14 +262,15 @@ void __time_critical_func(handle_6502_bus)() {
             gpio_set_dir_out_masked(DATA6502_MASK);
         } else {
             // For write cycles, sample data from bus and decode write
-            uint8_t value = (uint8_t) ((gpio_get_all64() & DATA6502_MASK)>> 22);
+            uint8_t value = (uint8_t) ((gpio_get_all64() & DATA6502_MASK)>> 16);
             write_6502_memory(address, value);           
         }
         for (uint8_t i = 0; i < BUS_CYCLE_DELAY_NOPs; i++) { asm volatile("nop \n nop \n nop "); }        
 
-        // total_cycles++; // for PIA SN76489, not need
+        total_cycles++; // for PIA 
 
         // Apply a short reset pulse only on startup
+
 
         if (reset_delay_counter < 8) {
             reset_delay_counter++;
@@ -299,6 +283,53 @@ void __time_critical_func(handle_6502_bus)() {
     }
 }
 
+FRESULT load_rom_from_sd(const char *path, uint8_t *buf, size_t buf_max, size_t *out_size) {
+    FIL file_sd;
+    UINT br = 0;
+    FILINFO fno;
+
+    // 1. Проверяем существование и размер
+    FRESULT res = f_stat(path, &fno);
+    if (res != FR_OK) {
+        printf("[SD] File stat failed: %s (code %d)\n", path, res);
+        return res;
+    }
+
+    size_t fsize = fno.fsize;
+    printf("[SD] ROM size: %lu bytes\n", (unsigned long)fsize);
+
+    // 2. Проверка на пустой или слишком большой файл
+    if (fsize == 0 || fsize > buf_max) {
+        printf("[SD] Invalid size: %lu, max allowed: %lu\n",
+               (unsigned long)fsize, (unsigned long)buf_max);
+        return FR_INVALID_PARAMETER;
+    }
+
+    // 3. Открываем и читаем
+    res = f_open(&file_sd, path, FA_READ);
+    if (res != FR_OK) {
+        printf("[SD] Cannot open file: %s (code %d)\n", path, res);
+        return res;
+    }
+
+    res = f_read(&file_sd, buf, fsize, &br);
+    f_close(&file_sd);
+
+    // 4. Главная проверка: сколько реально прочиталось
+    if (res == FR_OK && br == fsize) {
+        *out_size = fsize;
+        printf("[SD] Success: read %lu bytes\n", (unsigned long)br);
+        return FR_OK;
+    } else {
+        // Вот тут ты получаешь честные цифры: что хотел и что получил
+        printf("[SD] Read mismatch: requested %lu, got %lu (code %d)\n",
+               (unsigned long)fsize, (unsigned long)br, res);
+        return res;  // возвращаем настоящий код ошибки FatFs
+    }
+}
+
+
+
 int main()
 {
     vreg_disable_voltage_limit();
@@ -307,7 +338,7 @@ int main()
     sleep_ms(100);
     set_sys_clock_hz(315 * MHZ, 1); // fallback to failsafe clocks
 
-    // stdio_init_all();
+    stdio_init_all();
 
     // Initialize 6502 address/data bus directions
     gpio_init_mask(ADDR6502_MASK | DATA6502_MASK);
@@ -316,41 +347,57 @@ int main()
     // Configure all remaining 6502 and controller pins
     setup_6502_pins();
 
-    // Initialize select out interrupt from VDP to 6502    
+        // Initialize select out interrupt from VDP to 6502
+
     VDP_INT_init();
 
-    // BIOS image (2 KB)
-    memcpy(ROM0, bioscv_rom, biossize = bioscv_rom_len);
-    // BIOS image (16 KB)    
-    // memcpy(ROM0, saloram_rom, biossize = saloram_rom_len);
-    // memcpy(ROM0, las2001_rom, biossize = las2001_rom_len);
+sleep_ms(5000);
 
-    //ROM
-    // memcpy(ROM1_2, DIAGA_BIN, romsize = DIAGA_BIN_len);
-    // memcpy(ROM1_2, DIAGB_BIN, romsize = DIAGB_BIN_len); 
+// 1. Монтируем SD
+FATFS fs;
+if (FR_OK != f_mount(&fs, "", 1)) {
+    printf("SD Card not mounted!\n");
+    while (1) {}  // вешаем плату, чтобы видеть ошибку
+}
 
-    // memcpy(ROM1_2, AIRSEA_BIN, romsize = AIRSEA_BIN_len);
-    // memcpy(ROM1_2, SonicInvader_rom, romsize = SonicInvader_rom_len);
-    // memcpy(ROM1_2, ASAttack_rom, romsize = ASAttack_rom_len);
-    // memcpy(ROM1_2, CrazyChiky_rom, romsize = CrazyChiky_rom_len);
-    // memcpy(ROM1_2, CrazyPuker_rom, romsize = CrazyPuker_rom_len);
-    // memcpy(ROM1_2, ChResq_rom, romsize = ChResq_rom_len);  
-    // memcpy(ROM1_2, Locom_bin, romsize = Locom_bin_len);
-    // memcpy(ROM1_2, TankAttack_rom, romsize = TankAttack_rom_len);
-    // memcpy(ROM1_2, DeepSea_rom, romsize = DeepSea_rom_len);
-    // memcpy(ROM1_2, Locomotive12_rom, romsize = Locomotive12_rom_len);
-    // memcpy(ROM1_2, AstroPinball_rom, romsize = AstroPinball_rom_len);
-    // memcpy(ROM1_2, Hapmon_rom, romsize = Hapmon_rom_len);
-    // memcpy(ROM1_2, MousePuzzle_rom, romsize = MousePuzzle_rom_len);
-    // memcpy(ROM1_2, PlanetDefender_rom, romsize = PlanetDefender_rom_len);    
-    memcpy(ROM1_2, StoneAge_rom, romsize = StoneAge_rom_len);
+// Загрузка BIOS
+size_t bios_size = 0;
+FRESULT res = load_rom_from_sd("/CRV/BIOS/main.rom", ROM0, sizeof(ROM0), &bios_size);
 
-    // Clear RAM
+if (res != FR_OK) {
+    printf("[CRV] Failed to load BIOS: code %d\n", res);
+} else {
+    printf("[CRV] BIOS loaded: %lu bytes\n", (unsigned long)bios_size);
+}
+
+// Загрузка картриджа
+size_t cart_size = 0;
+res = load_rom_from_sd("/CRV/CART/game.rom", ROM1_2, sizeof(ROM1_2), &cart_size);
+
+if (res != FR_OK) {
+    printf("[CRV] Failed to load cartridge: code %d\n", res);
+} else {
+    printf("[CRV] Cartridge loaded: %lu bytes\n", (unsigned long)cart_size);
+}
+
+// CLEAR RAM
     memset(RAM, 0x00, 0x400);
-
+// START
     multicore_launch_core1(handle_6502_bus);
 
     while (true) {
+
+        // for (size_t i = 1; i < 16; i++)
+        // {
+        //     for (size_t y = 0; y < 16; y++)
+        //     {
+        //         printf(" %02X ", RAM[(i+16*y)+256]);
+        //     }
+        //     printf("\n");         
+        // }
+        // printf("\n");         
+        // busy_wait_ms(1000);
+
         if(joypad_read == 1 ){
             busy_wait_ms(4);            
             convert_nes_to_CV_joypad(read_joystick_data());

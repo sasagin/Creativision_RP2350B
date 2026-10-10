@@ -9,8 +9,8 @@
 
 ; Назначение GPIO пинов
 
-.define public VDP_IN_PIN                      40 ; вход прерывания от VDP9918
-.define public VDP_OUT_PIN                     36 ; Устанавливается через sideset. sideset = NMI(coleco = 36) INT(sg1000 = 37)
+.define public VDP_IN_PIN                      38 ; вход прерывания от VDP9918
+.define public VDP_OUT_PIN                     30 ; Устанавливается через sideset. sideset = NMI(coleco = 30) INT(sg1000 = 31)
 
 .wrap_target
 wait_INT:

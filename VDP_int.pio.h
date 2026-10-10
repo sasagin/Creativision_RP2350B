@@ -16,13 +16,13 @@
 #define vdpintz80_wrap 2
 #define vdpintz80_pio_version 1
 
-#define vdpintz80_VDP_IN_PIN 40
-#define vdpintz80_VDP_OUT_PIN 36
+#define vdpintz80_VDP_IN_PIN 38
+#define vdpintz80_VDP_OUT_PIN 30
 
 static const uint16_t vdpintz80_program_instructions[] = {
             //     .wrap_target
-    0x3808, //  0: wait   0 gpio, 40      side 1
-    0x3088, //  1: wait   1 gpio, 40      side 0
+    0x3806, //  0: wait   0 gpio, 38      side 1
+    0x3086, //  1: wait   1 gpio, 38      side 0
     0x0000, //  2: jmp    0
             //     .wrap
 };
