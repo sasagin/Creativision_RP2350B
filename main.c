@@ -8,17 +8,19 @@
 #include "hardware/pwm.h"
 // #include "hardware/i2c.h"
 
-#include "ff.h"
-#include "f_util.h"
-
 #include "hardware/vreg.h"
 #include <hardware/structs/qmi.h>
 #include <hardware/structs/xip.h>
+
+#include "ff.h"
+#include "f_util.h"
 
 #include "UM6502pinout.h"
 #include "VDP_int.pio.h"
 #include "M6821.h"
 
+#define CV_BIOS_PATH   "/CRV/BIOS/main.rom"
+#define CV_CART_PATH   "/CRV/CART/game.rom"
 
 // /VDP_RD 
 #define VDP_RD      36
@@ -283,52 +285,63 @@ void __time_critical_func(handle_6502_bus)() {
     }
 }
 
-FRESULT load_rom_from_sd(const char *path, uint8_t *buf, size_t buf_max, size_t *out_size) {
+void load_from_sd_creativision(void) {
+
     FIL file_sd;
-    UINT br = 0;
-    FILINFO fno;
+    UINT br;
+    FRESULT res; 
 
-    // 1. Проверяем существование и размер
-    FRESULT res = f_stat(path, &fno);
+    // --- 1. Читаем BIOS в ROM0 ---
+    res = f_open(&file_sd, CV_BIOS_PATH, FA_READ);
     if (res != FR_OK) {
-        printf("[SD] File stat failed: %s (code %d)\n", path, res);
-        return res;
+        printf("ERR: Cannot open BIOS (%s)\n", CV_BIOS_PATH);
+        while (1) {}  // вешаем плату, чтобы видеть ошибку
     }
 
-    size_t fsize = fno.fsize;
-    printf("[SD] ROM size: %lu bytes\n", (unsigned long)fsize);
-
-    // 2. Проверка на пустой или слишком большой файл
-    if (fsize == 0 || fsize > buf_max) {
-        printf("[SD] Invalid size: %lu, max allowed: %lu\n",
-               (unsigned long)fsize, (unsigned long)buf_max);
-        return FR_INVALID_PARAMETER;
-    }
-
-    // 3. Открываем и читаем
-    res = f_open(&file_sd, path, FA_READ);
-    if (res != FR_OK) {
-        printf("[SD] Cannot open file: %s (code %d)\n", path, res);
-        return res;
-    }
-
-    res = f_read(&file_sd, buf, fsize, &br);
+    size_t bios_max = sizeof(ROM0);
+    res = f_read(&file_sd, ROM0, bios_max, &br);
     f_close(&file_sd);
 
-    // 4. Главная проверка: сколько реально прочиталось
-    if (res == FR_OK && br == fsize) {
-        *out_size = fsize;
-        printf("[SD] Success: read %lu bytes\n", (unsigned long)br);
-        return FR_OK;
-    } else {
-        // Вот тут ты получаешь честные цифры: что хотел и что получил
-        printf("[SD] Read mismatch: requested %lu, got %lu (code %d)\n",
-               (unsigned long)fsize, (unsigned long)br, res);
-        return res;  // возвращаем настоящий код ошибки FatFs
+    if (res != FR_OK) {
+        printf("ERR: BIOS read error\n");
+        while (1) {}
     }
+    biossize = br;
+    printf("BIOS loaded: %u bytes into ROM0\n", br);
+
+
+    // --- 2. Читаем Картридж в ROM1_2 ---
+    res = f_open(&file_sd, CV_CART_PATH, FA_READ);
+    if (res != FR_OK) {
+        printf("ERR: Cannot open Cart (%s)\n", CV_CART_PATH);
+        // while (1) {}
+    }
+
+    size_t cart_max = sizeof(ROM1_2);
+    res = f_read(&file_sd, ROM1_2, cart_max, &br);
+    f_close(&file_sd);
+
+    if (res != FR_OK) {
+        printf("ERR: Cart read error\n");
+        // while (1) {}
+    }
+    // Берем «чистый» размер файла из FatFs напрямую, 
+    // либо используем br, но принудительно отсекаем мелкий мусор в хвосте:
+    uint16_t detected_size = (uint16_t)br;
+
+    // Округляем до точных стандартов Creativision:
+    if (detected_size >= 18432) romsize = 0x4800; // 18k
+    else if (detected_size >= 16384) romsize = 0x4000; // 16k
+    else if (detected_size >= 12288) romsize = 0x3000; // 12k
+    else if (detected_size >= 10240) romsize = 0x2800; // 10k
+    else if (detected_size >= 8192)  romsize = 0x2000; // 8k
+    else if (detected_size >= 6144)  romsize = 0x1800; // 6k
+    else if (detected_size >= 4096)  romsize = 0x1000; // 4k
+    else romsize = detected_size; // на случай совсем мелких файлов
+
+    printf("FatFs read: %u bytes. Romsize forced to: 0x%04X\n", br, romsize); 
+    // printf("Cart loaded: %u bytes into ROM1_2\n", br);
 }
-
-
 
 int main()
 {
@@ -351,38 +364,21 @@ int main()
 
     VDP_INT_init();
 
-sleep_ms(5000);
+// sleep_ms(3000);    
 
-// 1. Монтируем SD
-FATFS fs;
-if (FR_OK != f_mount(&fs, "", 1)) {
-    printf("SD Card not mounted!\n");
-    while (1) {}  // вешаем плату, чтобы видеть ошибку
-}
+    FATFS fs;
+  
+        // Mount SD card filesystem
+    if (FR_OK != f_mount(&fs, "", 1)) {
+        // while (!stdio_usb_connected()) { tight_loop_contents(); }
+        printf("SD Card not inserted or SD Card error!");
+        // reset_usb_boot(0, 0);
+    }
+   
+    load_from_sd_creativision();
 
-// Загрузка BIOS
-size_t bios_size = 0;
-FRESULT res = load_rom_from_sd("/CRV/BIOS/main.rom", ROM0, sizeof(ROM0), &bios_size);
-
-if (res != FR_OK) {
-    printf("[CRV] Failed to load BIOS: code %d\n", res);
-} else {
-    printf("[CRV] BIOS loaded: %lu bytes\n", (unsigned long)bios_size);
-}
-
-// Загрузка картриджа
-size_t cart_size = 0;
-res = load_rom_from_sd("/CRV/CART/game.rom", ROM1_2, sizeof(ROM1_2), &cart_size);
-
-if (res != FR_OK) {
-    printf("[CRV] Failed to load cartridge: code %d\n", res);
-} else {
-    printf("[CRV] Cartridge loaded: %lu bytes\n", (unsigned long)cart_size);
-}
-
-// CLEAR RAM
     memset(RAM, 0x00, 0x400);
-// START
+
     multicore_launch_core1(handle_6502_bus);
 
     while (true) {
