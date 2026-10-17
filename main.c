@@ -383,17 +383,6 @@ int main()
 
     while (true) {
 
-        // for (size_t i = 1; i < 16; i++)
-        // {
-        //     for (size_t y = 0; y < 16; y++)
-        //     {
-        //         printf(" %02X ", RAM[(i+16*y)+256]);
-        //     }
-        //     printf("\n");         
-        // }
-        // printf("\n");         
-        // busy_wait_ms(1000);
-
         if(joypad_read == 1 ){
             busy_wait_ms(4);            
             convert_nes_to_CV_joypad(read_joystick_data());
@@ -401,7 +390,6 @@ int main()
             joypad_read = 0;
         }
         
-
     } // while    
     
 }//main
