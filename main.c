@@ -21,6 +21,7 @@
 
 #define CV_BIOS_PATH   "/CRV/BIOS/main.rom"
 #define CV_CART_PATH   "/CRV/CART/game.rom"
+#define CV_CART_PATH1   "/CRV/CART/game1.rom"
 
 // /VDP_RD 
 #define VDP_RD      36
@@ -54,6 +55,7 @@
 
 uint16_t romsize;
 uint16_t biossize;
+bool    rom_mode = 1;       // rom_mode = 1 size 4-18 kB , rom_mode = 0 size 16kB (0x8000-0xBFFF)   -   32 kB (0x4000 - 0xBFFF)
 
 static uint8_t __aligned(4) RAM[0x400];
 static uint8_t __aligned(4) ROM1_2[0x8000];
@@ -176,6 +178,7 @@ __always_inline static inline uint8_t read_6502_memory(const uint16_t address) {
     if (address >= 0xC000) {return ROM0[address & 0x3fff];}
 
     //ROM
+    if(rom_mode){
         switch (romsize & 0x7800)
         {
         case 0x1000:    
@@ -216,8 +219,22 @@ __always_inline static inline uint8_t read_6502_memory(const uint16_t address) {
             break;                                                
         default:
             break;
-        }
-         
+        }        
+    }else{
+        switch (romsize)
+        {
+        case 0x4000:        
+        // ROM = 16k
+            if ((address >= 0x8000)&&(address < 0xC000))   {return ROM1_2[(address & 0x3fff)];}
+            break;
+        case 0x8000:
+        // ROM = 32k
+            if ((address >= 0x4000)&&(address < 0xC000))   {return ROM1_2[(address - 0x4000)];}
+            break;
+        default:
+            break;    
+        }    
+    }         
     return 0xFF;
 }
 
@@ -314,8 +331,13 @@ void load_from_sd_creativision(void) {
     res = f_open(&file_sd, CV_CART_PATH, FA_READ);
     if (res != FR_OK) {
         printf("ERR: Cannot open Cart (%s)\n", CV_CART_PATH);
-        // while (1) {}
-    }
+        rom_mode = 0;
+            res = f_open(&file_sd, CV_CART_PATH1, FA_READ);
+                if (res != FR_OK) {
+                printf("ERR: Cannot open Cart (%s)\n", CV_CART_PATH1);
+            // while (1) {}
+            }
+        }
 
     size_t cart_max = sizeof(ROM1_2);
     res = f_read(&file_sd, ROM1_2, cart_max, &br);
@@ -330,7 +352,9 @@ void load_from_sd_creativision(void) {
     uint16_t detected_size = (uint16_t)br;
 
     // Округляем до точных стандартов Creativision:
-    if (detected_size >= 18432) romsize = 0x4800; // 18k
+
+    if (detected_size >= 32768) romsize = 0x8000; // 32k
+    else if (detected_size >= 18432) romsize = 0x4800; // 18k    
     else if (detected_size >= 16384) romsize = 0x4000; // 16k
     else if (detected_size >= 12288) romsize = 0x3000; // 12k
     else if (detected_size >= 10240) romsize = 0x2800; // 10k
