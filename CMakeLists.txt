@@ -25,6 +25,9 @@ endif()
 # ====================================================================================
 set(PICO_BOARD weact_studio_rp2350b_core CACHE STRING "Board type")
 
+# USB HID gamepad/keyboard support (enabled by default)
+option(USB_HID_ENABLED "Enable USB HID host for gamepads and keyboards" ON)
+
 # Pull in Raspberry Pi Pico SDK (must be before project)
 include(pico_sdk_import.cmake)
 
@@ -45,7 +48,7 @@ add_subdirectory(drivers/fatfs)
 
 # Modify the below lines to enable/disable output over UART/USB
 pico_enable_stdio_uart(CreatiVision 0)
-pico_enable_stdio_usb(CreatiVision 1)
+pico_enable_stdio_usb(CreatiVision 0)
 
 pico_generate_pio_header(${PROJECT_NAME}
         ${CMAKE_CURRENT_SOURCE_DIR}/VDP_int.pio
@@ -53,6 +56,7 @@ pico_generate_pio_header(${PROJECT_NAME}
 )
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE
+        CFG_TUSB_RHPORT0_MODE=OPT_MODE_HOST
 
         SDCARD_PIN_SPI0_MISO=40
         SDCARD_PIN_SPI0_CS=41
@@ -62,7 +66,10 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
 
 # Add the standard library to the build
 target_link_libraries(CreatiVision
-        pico_stdlib)
+        pico_stdlib
+        tinyusb_host
+        tinyusb_device         
+        )
 
 # Add the standard include files to the build
 target_include_directories(CreatiVision PRIVATE

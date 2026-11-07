@@ -188,11 +188,6 @@ unsigned char PIA_Read(uint16_t addr)
 
 void convert_nes_to_CV_joypad(uint16_t nes_joy_data1_2){
 
-    for (size_t i = 0; i < 8; i++)
-    {
-        KEYBD[i] = 255;
-    }
-
     uint8_t nes_joy_data1 = (uint8_t)(nes_joy_data1_2 & 0x00ff);
     uint8_t nes_joy_data2 = (uint8_t)((nes_joy_data1_2>>8) & 0x00ff); 
 
@@ -203,12 +198,12 @@ void convert_nes_to_CV_joypad(uint16_t nes_joy_data1_2){
     if (((nes_joy_data1 & NES_SELECT)||(nes_joy_data1 & NES_A)) == 0) {KEYBD[2] &= ~KEY_5; return;}
     if (((nes_joy_data1 & NES_SELECT)||(nes_joy_data1 & NES_B)) == 0) {KEYBD[2] &= ~KEY_6; return;}        
 
-    if (((nes_joy_data2 & NES_SELECT)||(nes_joy_data2 & NES_UP)) == 0) {KEYBD[4] &= ~KEY_7; return;}
-    if (((nes_joy_data2 & NES_SELECT)||(nes_joy_data2 & NES_DOWN)) == 0) {KEYBD[4] &= ~KEY_8; return;} 
-    if (((nes_joy_data2 & NES_SELECT)||(nes_joy_data2 & NES_LEFT)) == 0) {KEYBD[4] &= ~KEY_9; return;} 
-    if (((nes_joy_data2 & NES_SELECT)||(nes_joy_data2 & NES_RIGHT)) == 0) {KEYBD[4] &= ~KEY_0; return;} 
-    if (((nes_joy_data2 & NES_SELECT)||(nes_joy_data2 & NES_A)) == 0) {KEYBD[4] &= ~KEY_RETURN; return;} 
-    if (((nes_joy_data2 & NES_SELECT)||(nes_joy_data2 & NES_B)) == 0) {KEYBD[3] &= ~KEY_SPACE; return;} 
+    if (((nes_joy_data2 & NES_START)||(nes_joy_data2 & NES_UP)) == 0) {KEYBD[4] &= ~KEY_7; return;}
+    if (((nes_joy_data2 & NES_START)||(nes_joy_data2 & NES_DOWN)) == 0) {KEYBD[4] &= ~KEY_8; return;} 
+    if (((nes_joy_data2 & NES_START)||(nes_joy_data2 & NES_LEFT)) == 0) {KEYBD[4] &= ~KEY_9; return;} 
+    if (((nes_joy_data2 & NES_START)||(nes_joy_data2 & NES_RIGHT)) == 0) {KEYBD[4] &= ~KEY_0; return;} 
+    if (((nes_joy_data2 & NES_START)||(nes_joy_data2 & NES_A)) == 0) {KEYBD[4] &= ~KEY_RETURN; return;} 
+    if (((nes_joy_data2 & NES_START)||(nes_joy_data2 & NES_B)) == 0) {KEYBD[3] &= ~KEY_SPACE; return;} 
  
     if ((nes_joy_data1 & NES_UP) == 0) {KEYBD[1] &= ~UP_BUTTON;}
     if ((nes_joy_data1 & NES_DOWN) == 0) {KEYBD[1] &= ~DOWN_BUTTON;}
@@ -224,4 +219,70 @@ void convert_nes_to_CV_joypad(uint16_t nes_joy_data1_2){
     if ((nes_joy_data2 & NES_B) == 0) {KEYBD[4] &= ~FIRE_BUTTON;}
     if ((nes_joy_data2 & NES_A) == 0) {KEYBD[3] &= ~ARM_BUTTON;}
 
+}
+
+void translate_keys_to_CRV(uint8_t *KEYBD,int i){
+
+    switch (i)
+    {
+        case 0x04: KEYBD[2] &= ~KEY_A; break;
+        case 0x05: KEYBD[2] &= ~KEY_B; break;
+		
+        case 0x06: KEYBD[2] &= ~KEY_C; break;
+        case 0x07: KEYBD[2] &= ~KEY_D; break;
+        case 0x08: KEYBD[2] &= ~KEY_E; break;
+        case 0x09: KEYBD[2] &= ~KEY_F; break;
+        case 0x0A: KEYBD[2] &= ~KEY_G; break;
+        case 0x0B: KEYBD[4] &= ~KEY_H; break;
+        case 0x0C: KEYBD[4] &= ~KEY_I; break;
+        case 0x0D: KEYBD[4] &= ~KEY_J; break;
+		
+        case 0x0E: KEYBD[4] &= ~KEY_K; break;
+        case 0x0F: KEYBD[4] &= ~KEY_L; break;
+        case 0x10: KEYBD[4] &= ~KEY_M; break;
+        case 0x11: KEYBD[4] &= ~KEY_N; break;   
+        case 0x12: KEYBD[4] &= ~KEY_O; break;
+		case 0x13: KEYBD[4] &= ~KEY_P; break;	
+		case 0x14: KEYBD[2] &= ~KEY_Q; break;
+		case 0x15: KEYBD[2] &= ~KEY_R; break;
+
+        case 0x16: KEYBD[2] &= ~KEY_S; break;
+        case 0x17: KEYBD[2] &= ~KEY_T; break;
+        case 0x18: KEYBD[4] &= ~KEY_U; break;
+        case 0x19: KEYBD[2] &= ~KEY_V; break;   
+        case 0x1A: KEYBD[2] &= ~KEY_W; break;
+		case 0x1B: KEYBD[2] &= ~KEY_X; break;	
+		case 0x1C: KEYBD[4] &= ~KEY_Y; break;
+		case 0x1D: KEYBD[2] &= ~KEY_Z; break;
+		
+        case 0x1E: KEYBD[1] &= ~KEY_1; break;
+        case 0x1F: KEYBD[2] &= ~KEY_2; break;
+        case 0x20: KEYBD[2] &= ~KEY_3; break;
+        case 0x21: KEYBD[2] &= ~KEY_4; break;   
+        case 0x22: KEYBD[2] &= ~KEY_5; break;
+		case 0x23: KEYBD[2] &= ~KEY_6; break;	
+		case 0x24: KEYBD[4] &= ~KEY_7; break;
+		case 0x25: KEYBD[4] &= ~KEY_8; break;		
+
+        case 0x26: KEYBD[4] &= ~KEY_9; break;
+        case 0x27: KEYBD[4] &= ~KEY_0; break;
+
+        case 0x28: KEYBD[4] &= ~KEY_RETURN; break;
+        case 0x29: KEYBD[2] &= ~KEY_CNTRL; break;        
+		case 0x2C: KEYBD[3] &= ~KEY_SPACE; break;
+        case 0x2D: KEYBD[4] &= ~KEY_COLON; break;
+        case 0x2E: KEYBD[4] &= ~KEY_EQUALS; break;
+		case 0x33: KEYBD[4] &= ~KEY_SEMICOLON; break;
+        case 0x36: KEYBD[4] &= ~KEY_COMMA; break;	
+        case 0x37: KEYBD[4] &= ~KEY_DOT; break;
+        case 0x38: KEYBD[4] &= ~KEY_SLASH; break;
+        case 0x39: KEYBD[1] &= ~KEY_SHIFT; break;
+		
+		case 0x4F: KEYBD[3] &= ~KEY_RIGHT; break;
+		case 0x50: KEYBD[2] &= ~KEY_LEFT; break;
+		case 0x51: KEYBD[1] &= ~DOWN_BUTTON; break;
+		case 0x52: KEYBD[1] &= ~UP_BUTTON; break;		
+  
+        default:break;
+    }
 }

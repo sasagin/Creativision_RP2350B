@@ -15,6 +15,9 @@
 #include "ff.h"
 #include "f_util.h"
 
+#include "tusb_config.h"
+#include "tusb.h"
+
 #include "UM6502pinout.h"
 #include "VDP_int.pio.h"
 #include "M6821.h"
@@ -43,6 +46,12 @@
 // #define AUD_W       39
 // #define AUD_W_MASK (1ULL << AUD_W)
 
+//for debug message
+            // #define UART_ID uart0
+            // #define BAUD_RATE 115200
+            // #define UART_TX_PIN 32
+            // #define UART_RX_PIN 33
+
 // NES-compatible gamepad (shift register) pins
 #define PIN_NES_JOYPAD_CLOCK 32
 #define PIN_NES_JOYPAD_LATCH 33
@@ -60,6 +69,12 @@ bool    rom_mode = 1;       // rom_mode = 1 size 4-18 kB , rom_mode = 0 size 16k
 static uint8_t __aligned(4) RAM[0x400];
 static uint8_t __aligned(4) ROM1_2[0x8000];
 static uint8_t __aligned(4) ROM0[0x4000];
+
+// keyboard
+// uint8_t keymapCRV[8] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+
+// Массив для хранения кодов нажатых клавиш (HID позволяет до 6 одновременно)
+uint8_t pressed_keys[6] = {0};
 
 volatile uint8_t joypad_read = 0;
 
@@ -367,6 +382,16 @@ void load_from_sd_creativision(void) {
     // printf("Cart loaded: %u bytes into ROM1_2\n", br);
 }
 
+void load_key_state() {
+    for (int i = 0; i < 6; i++) {
+       
+        if (pressed_keys[i]) {
+            translate_keys_to_CRV(KEYBD,pressed_keys[i]);
+             printf("%02X ", pressed_keys[i]); 
+        }
+    }  
+}
+
 int main()
 {
     vreg_disable_voltage_limit();
@@ -376,6 +401,17 @@ int main()
     set_sys_clock_hz(315 * MHZ, 1); // fallback to failsafe clocks
 
     stdio_init_all();
+
+    // Инициализация USB стека
+    tusb_init(); 
+
+            //for debug message
+                // Инициализируем UART    
+            // uart_init(UART_ID, BAUD_RATE);
+
+            // // // Настраиваем GPIO пины для UART
+            // gpio_set_function(UART_TX_PIN, GPIO_FUNC_UART);
+            // gpio_set_function(UART_RX_PIN, GPIO_FUNC_UART);    
 
     // Initialize 6502 address/data bus directions
     gpio_init_mask(ADDR6502_MASK | DATA6502_MASK);
@@ -407,13 +443,39 @@ int main()
 
     while (true) {
 
-        if(joypad_read == 1 ){
-            busy_wait_ms(4);            
+    busy_wait_ms(8);
+            for (size_t i = 0; i < 8; i++)
+            {
+                KEYBD[i] = 0xff;
+            }
             convert_nes_to_CV_joypad(read_joystick_data());
-            busy_wait_ms(4);
-            joypad_read = 0;
-        }
-        
+
+            tuh_task(); // Обслуживание USB стека   
+            load_key_state();
     } // while    
     
 }//main
+
+// Вызывается при подключении устройства
+void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, uint8_t const* desc_report, uint16_t desc_len) {
+    uint8_t const itf_protocol = tuh_hid_interface_protocol(dev_addr, instance);
+
+    // Если это клавиатура — запрашиваем отчет
+    if (itf_protocol == HID_ITF_PROTOCOL_KEYBOARD) {
+        tuh_hid_receive_report(dev_addr, instance);
+    }
+}
+
+// Вызывается при получении данных от клавиатуры
+void tuh_hid_report_received_cb(uint8_t dev_addr, uint8_t instance, uint8_t const* report, uint16_t len) {
+    hid_keyboard_report_t const* kbd_report = (hid_keyboard_report_t const*) report;
+
+    // Копируем состояние 6 клавиш в наш массив
+    for(int i=0; i<6; i++) {
+        pressed_keys[i] = kbd_report->keycode[i];
+    }
+
+
+    // Запрашиваем следующий отчет
+    tuh_hid_receive_report(dev_addr, instance);
+}

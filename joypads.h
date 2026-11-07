@@ -43,7 +43,7 @@
 #define     KEY_C               (0x22)
 #define     KEY_V               (0x42)
 #define     KEY_B               (0x06)
-// KEYBD[3]
+// KEYBD[4]
 #define     KEY_7               (0x06)
 #define     KEY_8               (0x42)
 #define     KEY_9               (0x22)
@@ -69,6 +69,64 @@
 #define     KEY_COMMA           (0x28)
 #define     KEY_DOT             (0x60)
 #define     KEY_SLASH           (0x30)
-// KEYBD[4]
+// KEYBD[3]
 #define     KEY_RIGHT           (0x80)
 #define     KEY_SPACE           (0x0C)
+
+//SALORA LASER2001-------------------------------- 
+
+//M0
+#define     MKEY_3               (1<<4)
+#define     MKEY_E               (1<<5)
+#define     MKEY_S               (1<<6)
+#define     MKEY_X               (1<<7)
+#define     MKEY_RETURN          (1<<3)
+#define     MKEY_DOTT            (1<<2)
+//M1
+#define     MKEY_2               (1<<4)
+#define     MKEY_W               (1<<5)
+#define     MKEY_A               (1<<6)
+#define     MKEY_Z               (1<<7)
+#define     MKEY_COLON           (1<<3)
+#define     MKEY_LEFT            (1<<2)
+//M2
+#define     MKEY_1               (1<<4)
+#define     MKEY_Q               (1<<5)
+#define     MKEY_CTRL            (1<<6)
+#define     MKEY_SHIFT           (1<<7)
+#define     MKEY_SLASH           (1<<3)
+#define     MKEY_RIGHT           (1<<2)
+//M3
+#define     MKEY_4               (1<<4)
+#define     MKEY_R               (1<<5)
+#define     MKEY_D               (1<<6)
+#define     MKEY_C               (1<<7)
+#define     MKEY_SEMICOLON       (1<<3)
+#define     MKEY_DOWN            (1<<2)
+//M4
+#define     MKEY_5               (1<<4)
+#define     MKEY_T               (1<<5)
+#define     MKEY_F               (1<<6)
+#define     MKEY_V               (1<<7)
+#define     MKEY_P               (1<<3)
+#define     MKEY_COMMA           (1<<2)
+//M5
+#define     MKEY_6               (1<<4)
+#define     MKEY_Y               (1<<5)
+#define     MKEY_G               (1<<6)
+#define     MKEY_B               (1<<7)
+#define     MKEY_0               (1<<3)
+#define     MKEY_UP              (1<<2)
+//M6
+#define     MKEY_7               (1<<4)
+#define     MKEY_U               (1<<5)
+#define     MKEY_H               (1<<6)
+#define     MKEY_N               (1<<7)
+#define     MKEY_9               (1<<3)
+#define     MKEY_K               (1<<2)
+//M7
+#define     MKEY_8               (1<<4)
+#define     MKEY_I               (1<<5)
+#define     MKEY_J               (1<<6)
+#define     MKEY_M               (1<<7)
+#define     MKEY_O               (1<<3)
